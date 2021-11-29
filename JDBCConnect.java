@@ -35,8 +35,24 @@ public class JDBCConnect {
 		return con;
 	}
 
-	// TODO: we can write code for queries in here and pass in connection
-	
+	// TODO: we can write code for queries in this file and pass in connection
+
+	// TODO: remove once confirm you can get connected. I had to download the mysql-connector-java jar file and add it to my PATH
+	public static void main(String[] args) {
+		try {
+
+			Connection conn = makeConnection();
+			
+
+			conn.close();
+			System.out.println();
+			System.out.println("Database [test db] connection closed");
+			System.out.println();
+		} catch (Exception ex) {
+			// handle the error
+			System.err.println(ex);
+		}
+	}
 		
 
 }
