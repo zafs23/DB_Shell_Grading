@@ -1,7 +1,7 @@
 CREATE TABLE class (
   class_id SERIAL PRIMARY KEY,
   class_num VARCHAR(20) NOT NULL,
-  class_term VARCHAR(20) NOT NULL,
+  class_term ENUM('Sp', 'Fa', 'Su'),
   class_year INTEGER NOT NULL,
   class_sec_num INTEGER NOT NULL,
   class_description VARCHAR(500) NOT NULL

@@ -14,7 +14,7 @@ public class GradeManager {
 	}
 
 	// Create a new 'class' for the database table
-	public void new_Class(String classNum, String term, int year, int sectionNum, String description)
+	public void newClass(String classNum, String term, int year, int sectionNum, String description)
 			throws SQLException {
 		String createNewClassQuery = "INSERT INTO class (class_num, class_term, class_year, class_sec_num, class_description) "
 				+ "VALUES(?, ?, ?, ?, ?)";
@@ -63,7 +63,11 @@ public class GradeManager {
 	}
 
 	// Activate a class - select class class_number term
-	public void selectClass(String classNumber, String term, int year) throws SQLException {
+	public void selectClass(String classNumber, String termYear) throws SQLException {
+		List<Object> tmp = parseTermYear(termYear);
+		String term = (String) tmp.get(0);
+		int year = (int) tmp.get(1);
+		
 		String querySelectClass = activateClassQuery + "AND class_term = ? AND class_year = ? ";
 
 		try (PreparedStatement stmt = db.prepareCall(querySelectClass)) {
@@ -83,7 +87,11 @@ public class GradeManager {
 	}
 
 	// Activate a class - select class class_number term section
-	public void selectClass(String classNumber, String term, int year, int section) throws SQLException {
+	public void selectClass(String classNumber, String termYear, int section) throws SQLException {
+		List<Object> tmp = parseTermYear(termYear);
+		String term = (String) tmp.get(0);
+		int year = (int) tmp.get(1);
+
 		String querySelectClass = activateClassQuery + "AND class_term = ? AND class_year = ? AND class_sec_num = ? ";
 
 		try (PreparedStatement stmt = db.prepareCall(querySelectClass)) {
@@ -116,6 +124,33 @@ public class GradeManager {
 				}
 			}
 		}
+	}
+
+	public List<Object> parseTermYear(String termYear) {
+		String term = "";
+		String tmpyear = "";
+		List<String> termOpts = Arrays.asList("Sp", "Fa", "Su");
+		for (int i = 0; i < termYear.length(); i++){
+			if (!Character.isDigit(termYear.charAt(i))) {
+				// handling if term isn't given with first letter in uppercase
+				if (i == 0 && !Character.isUpperCase(termYear.charAt(i))) {
+					Character.toUpperCase(termYear.charAt(i));
+				}
+				term = term + termYear.charAt(i);
+            }
+			if (Character.isDigit(termYear.charAt(i))){
+				tmpyear = tmpyear + termYear.charAt(i);
+			}
+		}
+		int year = Integer.parseInt(tmpyear);
+		if (!termOpts.contains(term)) {
+			// TODO: handle error to go back to main menu (I can set up main menu stuff)
+			System.out.println("ERROR: term doesn't match available term options ('Sp', 'Fa', 'Su')");
+			return null;
+		}
+		return Arrays.asList(term, year);
+		
+		
 	}
 
 	// Connect to CS410 Final Project Sandbox
