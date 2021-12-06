@@ -1,5 +1,10 @@
-CLEARDB_DATABASE_URL: mysql://b4869ae9f778f4:37791160@us-cdbr-east-04.cleardb.com/heroku_b378fabbe121395?reconnect=true
-username: b4869ae9f778f4
-password: 37791160
-hostname: us-cdbr-east-04.cleardb.com
-port: 3306
+## Using onyx sandbox:
+username: msandbox
+password: b0is3cs410
+port: 50763
+
+To run JDBCConnect.java:
+javac JDBCConnect.java
+java JDBCConnect 50763 b0is3cs410 testdb
+** testdb won't actually be our db name, but for now I've commented out all transactional code
+so this is just to test connection through the java file.
