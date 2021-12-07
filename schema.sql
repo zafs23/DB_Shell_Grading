@@ -27,21 +27,21 @@ CREATE TABLE assignments (
 );
 
 CREATE TABLE students (
-  students_id INTEGER PRIMARY KEY,
-  students_username VARCHAR(100) NOT NULL,
-  students_name VARCHAR(100) NOT NULL
+  student_id INTEGER PRIMARY KEY,
+  student_username VARCHAR(100) NOT NULL,
+  student_name VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE grades (
   grades_score INTEGER NOT NULL,
   assignments_id INTEGER NOT NULL REFERENCES assignments (assignments_id),
-  students_id INTEGER NOT NULL REFERENCES students (students_id),
-  PRIMARY KEY (students_id, assignments_id)
+  student_id INTEGER NOT NULL REFERENCES students (student_id),
+  PRIMARY KEY (student_id, assignments_id)
 );
 
 CREATE TABLE enroll (
-  students_id INTEGER NOT NULL REFERENCES students (students_id),
+  student_id INTEGER NOT NULL REFERENCES students (student_id),
   class_id INTEGER NOT NULL REFERENCES class (class_id),
 
-  PRIMARY KEY (students_id, class_id)
+  PRIMARY KEY (student_id, class_id)
 );

@@ -1,11 +1,10 @@
 
-import java.io.*;
 import java.sql.*;
 import java.util.*;
 
 /**
- * GradeManager is instantiated with a JDBC connection and is reponsible
- * for running SQL queries. Implemented in DBShell.java
+ * GradeManager is instantiated with a JDBC connection and is reponsible for
+ * running SQL queries. Implemented in DBShell.java
  */
 public class GradeManager {
 	private final Connection db;
@@ -58,7 +57,6 @@ public class GradeManager {
 							System.out.println("Error! Multiple classes for class number exits. ");
 						}
 					}
-
 					System.out.println("Class '" + classNumber + "' is selected successfully.\n");
 				}
 			}
@@ -71,7 +69,7 @@ public class GradeManager {
 		List<Object> tmp = parseTermYear(termYear);
 		String term = (String) tmp.get(0);
 		int year = (int) tmp.get(1);
-		
+
 		String querySelectClass = activateClassQuery + "AND class_term = " + term + " AND class_year = " + year;
 
 		try (PreparedStatement stmt = db.prepareCall(querySelectClass)) {
@@ -96,7 +94,8 @@ public class GradeManager {
 		String term = (String) tmp.get(0);
 		int year = (int) tmp.get(1);
 
-		String querySelectClass = activateClassQuery + "AND class_term = " + term + " AND class_year = " + year + "AND class_sec_num = " + section;
+		String querySelectClass = activateClassQuery + "AND class_term = " + term + " AND class_year = " + year
+				+ "AND class_sec_num = " + section;
 
 		try (PreparedStatement stmt = db.prepareCall(querySelectClass)) {
 			GradeManager.insertValues(stmt, classNumber, term, year, section);
@@ -134,15 +133,15 @@ public class GradeManager {
 		String term = "";
 		String tmpyear = "";
 		List<String> termOpts = Arrays.asList("Sp", "Fa", "Su");
-		for (int i = 0; i < termYear.length(); i++){
+		for (int i = 0; i < termYear.length(); i++) {
 			if (!Character.isDigit(termYear.charAt(i))) {
 				// handling if term isn't given with first letter in uppercase
 				if (i == 0 && !Character.isUpperCase(termYear.charAt(i))) {
 					Character.toUpperCase(termYear.charAt(i));
 				}
 				term = term + termYear.charAt(i);
-            }
-			if (Character.isDigit(termYear.charAt(i))){
+			}
+			if (Character.isDigit(termYear.charAt(i))) {
 				tmpyear = tmpyear + termYear.charAt(i);
 			}
 		}
@@ -152,20 +151,17 @@ public class GradeManager {
 			return null;
 		}
 		return Arrays.asList(term, year);
-		
-		
 	}
 
-		// Category and Assignment Management
-	
+	// Category and Assignment Management
+
 	// show-categories
 	public void showCategories() throws SQLException {
-		String showCategoryQuery = "SELECT * FROM category " 
-					 + "JOIN class ON category.class_id = class.class_id "
-					 + "WHERE class.class_id = ?";
+		String showCategoryQuery = "SELECT * FROM category " + "JOIN class ON category.class_id = class.class_id "
+				+ "WHERE class.class_id = ?";
 
 		try (PreparedStatement stmt = db.prepareStatement(showCategoryQuery)) {
-			GradeManager.insertValues(stmt, currActiveClass);
+			GradeManager.insertValues(stmt, this.currActiveClass);
 
 			try (ResultSet rs = stmt.executeQuery()) {
 				System.out.println("Categories for the active class:\n");
@@ -176,7 +172,174 @@ public class GradeManager {
 			}
 		}
 	}
-	
+
 	// add a new category
 
+	public void addCategory(String name, int weight) throws SQLException {
+		if (currActiveClass == 0) {
+			System.out.println("Error! No active class is selected.");
+			return;
+		}
+		String queryAddCategory = "INSERT INTO category (category_name, category_weight, class_id) "
+				+ "VALUES (?, ?, ?)";
+		insertQuery(queryAddCategory, name, weight, this.currActiveClass);
+	}
+
+	// List all assignments with point values, grouped by category
+	public void showAssignemnets() throws SQLException {
+		String query = "SELECT assignments.assignments_name, assignments.assignments_point_value " + "FROM assignments "
+				+ "INNER JOIN category ON assignemnts.category_id = category.category_id "
+				+ "INNER JOIN class ON class.class_id = category.class_id " + "WHERE category.class_id = ? "
+				+ "GROUP BY category.category_id";
+
+		try (PreparedStatement stmt = db.prepareStatement(query)) {
+			GradeManager.insertValues(stmt, this.currActiveClass);
+
+			try (ResultSet rs = stmt.executeQuery()) {
+				System.out.println("Assignment Lists: \n");
+				while (rs.next()) {
+					System.out
+							.println(rs.getString("assignments_name") + "\t |" + rs.getInt("assignments_point_value"));
+				}
+			}
+		}
+	}
+
+	// add a new assignment
+	public void addNewAssignment(String name, String category_name, String description, int point) throws SQLException {
+		if (this.currActiveClass == 0) {
+			System.out.println("Error! No active class is selected.");
+			return;
+		}
+
+		// first check the category ID for the assignment
+		String queryCategory_ID = "SELECT category_id FROM category WHERE category_name = ? AND class_id = ?";
+
+		int category_id = 0;
+		try (PreparedStatement stmt = db.prepareStatement(queryCategory_ID)) {
+			GradeManager.insertValues(stmt, category_name, this.currActiveClass);
+
+			try (ResultSet rs = stmt.executeQuery()) {
+				if (rs.next()) {
+					category_id = rs.getInt("category_id");
+				}
+			}
+		}
+
+		if (category_id == 0) {
+			System.out.println("There is no category similar to " + category_name + " .\n");
+			return;
+		}
+
+		// if category exists, do the actual query
+		String queryAddAssignment = "INSERT INTO assignments (assignments_name, assignments_description, assignments_point_value, category_id) "
+				+ "VALUES (?, ?, ?, ?)";
+		insertQuery(queryAddAssignment, name, description, point, category_id);
+
+		System.out.println("Assignment " + name + " is added.\n");
+	}
+
+	// Student Management
+	// add a student to the student table and enroll to a class
+	public void addStudent(String username, int student_id, String nameLast, String nameFirst) throws SQLException {
+		String student_name = nameFirst + " " + nameLast;
+
+		// have to check if the student ID already exists
+		String queryStudent_ID = "SELECT count(student_id) as sum FROM students WHERE student_id = ? ";
+
+		int student = 0;
+		try (PreparedStatement stmt = db.prepareStatement(queryStudent_ID)) {
+			GradeManager.insertValues(stmt, student_id);
+
+			try (ResultSet rs = stmt.executeQuery()) {
+				if (rs.next()) {
+					student = rs.getInt("sum");
+				}
+			}
+		}
+
+		if (student == 0) {
+			String queryAddStudent = "INSERT INTO students (student_id, student_username, student_name) "
+					+ "VALUES (?, ?, ?)";
+			insertQuery(queryAddStudent, student_id, username, student_name);
+
+		} else {
+			// Now update the student name if doesn't match with database
+			String queryStudent_Name = "SELECT student_name FROM students WHERE student_id = ? ";
+
+			String studentName = "";
+			try (PreparedStatement stmt = db.prepareStatement(queryStudent_Name)) {
+				GradeManager.insertValues(stmt, student_id);
+
+				try (ResultSet rs = stmt.executeQuery()) {
+					if (rs.next()) {
+						studentName = rs.getString("student_name");
+					}
+				}
+			}
+
+			if (!studentName.equals(student_name)) {
+				// do the update query here
+				String queryUpdateStudent = "UPDATE students SET student_username = ?  WHERE student_id = ? ";
+
+				try (PreparedStatement update = db.prepareStatement(queryUpdateStudent)) {
+					GradeManager.insertValues(update, student_name, student_id);
+					update.executeUpdate();
+					System.out.println("Student already exits in a different name. The student name is updated. \n");
+					return;
+				}
+			}
+		}
+
+		// enroll the student as well
+		String queryEnrollStudent = "INSERT INTO enroll (student_id, class_id)  VALUES (?, ?)";
+		insertQuery(queryEnrollStudent, student_id, this.currActiveClass);
+	}
+
+	// add-student username
+	public void addStudentUsername(String username) throws SQLException {
+
+		// have to check if the student ID already exists
+		String queryStudent_ID = "SELECT student_id FROM students WHERE (student_username = ?) ";
+
+		int student_id = 0;
+		try (PreparedStatement stmt = db.prepareStatement(queryStudent_ID)) {
+			GradeManager.insertValues(stmt, username);
+
+			try (ResultSet rs = stmt.executeQuery()) {
+				if (rs.next()) {
+					student_id = rs.getInt("student_id");
+				}
+			}
+		}
+
+		if (student_id != 0) {
+			// enroll the student
+			String queryEnrollStudent = "INSERT INTO enroll (student_id, class_id)  VALUES (?, ?)";
+			insertQuery(queryEnrollStudent, student_id, this.currActiveClass);
+
+		} else {
+			System.out.println("Error! Student doesn't exist. \n");
+			return;
+		}
+	}
+
+	// show all students
+	public void showStudents(String match) throws SQLException {
+		String query = "SELECT s.student_id, s.student_username, s.student_name " + "FROM students as s "
+				+ "INNER JOIN enroll ON s.student_id = enroll.student_id " + "WHERE (s.class_id = ?) ";
+
+		try (PreparedStatement stmt = db.prepareStatement(query)) {
+			GradeManager.insertValues(stmt, this.currActiveClass);
+
+			try (ResultSet rs = stmt.executeQuery()) {
+				System.out.println("Students from the current class:\n");
+
+				while (rs.next()) {
+					System.out.println(rs.getInt("student_id") + "\t |" + rs.getString("student_username") + "\t |"
+							+ rs.getString("student_name"));
+				}
+			}
+		}
+	}
 }
