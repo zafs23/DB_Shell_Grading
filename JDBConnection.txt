@@ -1,0 +1,7 @@
+## Using onyx sandbox:
+username: msandbox
+password: b0is3cs410
+port: 50763
+
+JDBCConnect is run through DBShell.java. You'll be prompted to enter the following:
+50763 b0is3cs410
