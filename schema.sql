@@ -1,7 +1,7 @@
 CREATE TABLE class (
   class_id SERIAL PRIMARY KEY,
   class_num VARCHAR(20) NOT NULL,
-  class_term ENUM('Sp', 'Fa', 'Su'),
+  class_term VARCHAR(20) NOT NULL,
   class_year INTEGER NOT NULL,
   class_sec_num INTEGER NOT NULL,
   class_description VARCHAR(500) NOT NULL
@@ -19,9 +19,9 @@ CREATE TABLE category (
 
 CREATE TABLE assignments (
   assignments_id SERIAL PRIMARY KEY,
-  assignments_point_value INTEGER NOT NULL,
-  assignments_description TEXT NOT NULL,
   assignments_name VARCHAR(100) NOT NULL,
+  assignments_description TEXT NOT NULL,
+  assignments_point_value INTEGER NOT NULL,
 	
   category_id INTEGER NOT NULL REFERENCES category (category_id)
 );

@@ -156,4 +156,27 @@ public class GradeManager {
 		
 	}
 
+		// Category and Assignment Management
+	
+	// show-categories
+	public void showCategories() throws SQLException {
+		String showCategoryQuery = "SELECT * FROM category " 
+					 + "JOIN class ON category.class_id = class.class_id "
+					 + "WHERE class.class_id = ?";
+
+		try (PreparedStatement stmt = db.prepareStatement(showCategoryQuery)) {
+			GradeManager.insertValues(stmt, currActiveClass);
+
+			try (ResultSet rs = stmt.executeQuery()) {
+				System.out.println("Categories for the active class:\n");
+
+				while (rs.next()) {
+					System.out.println(rs.getString("category_name") + "\t |" + rs.getInt("category_weight"));
+				}
+			}
+		}
+	}
+	
+	// add a new category
+
 }
