@@ -9,7 +9,7 @@ import java.util.*;
 public class GradeManager {
 	private final Connection db;
 	private int currActiveClass;
-	private String activateClassQuery = "SELECT class_id, class_year, class_term FROM class where class_num = ? ";
+	private String activateClassQuery = "SELECT class_id, class_year, class_term FROM class where class_num = ?";
 
 	public GradeManager(Connection con) {
 		this.db = con;
@@ -17,8 +17,11 @@ public class GradeManager {
 	}
 
 	// Create a new 'class' for the database table
-	public void newClass(String classNum, String term, int year, int sectionNum, String description)
-			throws SQLException {
+	public void newClass(String classNum, String termYear, int sectionNum, String description) throws SQLException {
+		List<Object> tmp = parseTermYear(termYear);
+		String term = (String) tmp.get(0);
+		int year = (int) tmp.get(1);
+
 		String createNewClassQuery = "INSERT INTO class (class_num, class_term, class_year, class_sec_num, class_description) "
 				+ "VALUES(?, ?, ?, ?, ?)";
 		insertQuery(createNewClassQuery, classNum, term, year, sectionNum, description);
@@ -40,7 +43,19 @@ public class GradeManager {
 
 	}
 
-	// list class with number of students in it, needs a join statement
+	// list classes with number of students in it
+	public void listClasses() throws SQLException {
+		String queryListClasses = "SELECT class_num, COUNT(student_id) AS num_students FROM class JOIN enroll " +
+			"class.class_id = enroll.class_id GROUP BY enroll.class_id";
+		try (PreparedStatement stmt = db.prepareStatement(queryListClasses)) {
+			try (ResultSet rs = stmt.executeQuery()) {
+				System.out.println("List of classes:\n");
+				while (rs.next()) {
+					System.out.println(rs.getString("class_num") + "\t |" + rs.getString("num_students"));
+				}
+			}
+		}
+	}
 
 	// Activate a class - select class class_number
 	public void selectClass(String classNumber) throws SQLException {
@@ -70,7 +85,7 @@ public class GradeManager {
 		String term = (String) tmp.get(0);
 		int year = (int) tmp.get(1);
 
-		String querySelectClass = activateClassQuery + "AND class_term = " + term + " AND class_year = " + year;
+		String querySelectClass = activateClassQuery + "AND class_term = ? AND class_year = ?";
 
 		try (PreparedStatement stmt = db.prepareCall(querySelectClass)) {
 			GradeManager.insertValues(stmt, classNumber, term, year);
@@ -94,8 +109,8 @@ public class GradeManager {
 		String term = (String) tmp.get(0);
 		int year = (int) tmp.get(1);
 
-		String querySelectClass = activateClassQuery + "AND class_term = " + term + " AND class_year = " + year
-				+ "AND class_sec_num = " + section;
+		String querySelectClass = activateClassQuery + "AND class_term = ? AND class_year = ?"
+				+ "AND class_sec_num = ?";
 
 		try (PreparedStatement stmt = db.prepareCall(querySelectClass)) {
 			GradeManager.insertValues(stmt, classNumber, term, year, section);
@@ -118,7 +133,7 @@ public class GradeManager {
 			GradeManager.insertValues(stmt, this.currActiveClass);
 
 			try (ResultSet rs = stmt.executeQuery()) {
-				System.out.println("The currectly Active class: \n");
+				System.out.println("The currectly active class: \n");
 
 				while (rs.next()) {
 					System.out.println(rs.getString("class_num") + "\t |" + rs.getString("class_term") + "\t |"
@@ -186,7 +201,8 @@ public class GradeManager {
 	}
 
 	// List all assignments with point values, grouped by category
-	public void showAssignemnets() throws SQLException {
+	// TODO: I don't think the second inner join is necessary since the class id would have to be in category
+	public void showAssignments() throws SQLException {
 		String query = "SELECT assignments.assignments_name, assignments.assignments_point_value " + "FROM assignments "
 				+ "INNER JOIN category ON assignemnts.category_id = category.category_id "
 				+ "INNER JOIN class ON class.class_id = category.class_id " + "WHERE category.class_id = ? "
@@ -327,10 +343,17 @@ public class GradeManager {
 	// show all students
 	public void showStudents(String match) throws SQLException {
 		String query = "SELECT s.student_id, s.student_username, s.student_name " + "FROM students as s "
-				+ "INNER JOIN enroll ON s.student_id = enroll.student_id " + "WHERE (s.class_id = ?) ";
+				+ "INNER JOIN enroll ON s.student_id = enroll.student_id WHERE (s.class_id = ?)";
+		if (match != "") {
+			query += "AND s.student_username LIKE '%?%'";
+		}
 
 		try (PreparedStatement stmt = db.prepareStatement(query)) {
-			GradeManager.insertValues(stmt, this.currActiveClass);
+			if (match == "") {
+				GradeManager.insertValues(stmt, this.currActiveClass);
+			} else {
+				GradeManager.insertValues(stmt, this.currActiveClass, match);
+			}
 
 			try (ResultSet rs = stmt.executeQuery()) {
 				System.out.println("Students from the current class:\n");
@@ -341,5 +364,30 @@ public class GradeManager {
 				}
 			}
 		}
+	}
+
+	// grade the given assignment for the passed in student
+	// TODO: get number of rows inserted as confirmation (we should do this for all inserts)
+	// TODO: I think this query will throw error if not found add in handle for assignment or student not found
+	// but if it doesn't, I'll add in separate queries to check that the assignment and student exist
+	public void grade(String assignName, String username, int grade) throws SQLException {
+		String query = "INSERT INTO grades (grades_score, assignments_id, student_id) values " +
+		"(?, SELECT a.assignments_id FROM assignments AS a INNER JOIN category AS c ON a.category_id = c.category_id " +
+		"WHERE c.class_id = ? AND a.assignments_name = ? GROUP BY c.category_id LIMIT 1, SELECT s.student_id FROM students AS s " +
+		"INNER JOIN enroll ON s.student_id = enroll.student_id WHERE s.class_id = ? AND s.student_username = ?)";
+		
+		insertQuery(query, grade, this.currActiveClass, assignName, this.currActiveClass, username);
+	}
+
+	// show student's current grade
+	// TODO
+	public void studentGrades(String username) throws SQLException {
+		// String query = "SELECT "
+	}
+
+	// show's entire classes gradebook, including student info and total grades in class
+	// TODO
+	public void gradebook() throws SQLException {
+		// String query = ""
 	}
 }

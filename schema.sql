@@ -28,7 +28,7 @@ CREATE TABLE assignments (
 
 CREATE TABLE students (
   student_id INTEGER PRIMARY KEY,
-  student_username VARCHAR(100) NOT NULL,
+  student_username VARCHAR(100) NOT NULL UNIQUE,
   student_name VARCHAR(100) NOT NULL
 );
 
