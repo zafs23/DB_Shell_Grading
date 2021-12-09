@@ -45,8 +45,8 @@ public class GradeManager {
 
 	// list classes with number of students in it
 	public void listClasses() throws SQLException {
-		String queryListClasses = "SELECT class_num, COUNT(student_id) AS num_students FROM class JOIN enroll " +
-			"class.class_id = enroll.class_id GROUP BY enroll.class_id";
+		String queryListClasses = "SELECT class_num, COUNT(student_id) AS num_students FROM class JOIN enroll "
+				+ "class.class_id = enroll.class_id GROUP BY enroll.class_id";
 		try (PreparedStatement stmt = db.prepareStatement(queryListClasses)) {
 			try (ResultSet rs = stmt.executeQuery()) {
 				System.out.println("List of classes:\n");
@@ -201,7 +201,8 @@ public class GradeManager {
 	}
 
 	// List all assignments with point values, grouped by category
-	// TODO: I don't think the second inner join is necessary since the class id would have to be in category
+	// TODO: I don't think the second inner join is necessary since the class id
+	// would have to be in category
 	public void showAssignments() throws SQLException {
 		String query = "SELECT assignments.assignments_name, assignments.assignments_point_value " + "FROM assignments "
 				+ "INNER JOIN category ON assignemnts.category_id = category.category_id "
@@ -255,31 +256,58 @@ public class GradeManager {
 		System.out.println("Assignment " + name + " is added.\n");
 	}
 
+	// check if student exists, check with username, as it has to be unique
+	private int studentIDCurrClass(String username) throws SQLException {
+		int student = 0;
+		String queryStudent_ID = "SELECT student_id FROM students WHERE student_username = ? ";
+
+		try (PreparedStatement stmt = db.prepareStatement(queryStudent_ID)) {
+			GradeManager.insertValues(stmt, username);
+
+			try (ResultSet rs = stmt.executeQuery()) {
+				if (rs.next()) {
+					student = rs.getInt("student_id"); // returns a 0 if the value doesn't exists
+				}
+			}
+		}
+
+		return student;
+	}
+
+	// check if assignment exits
+	private int assignemntIDCurrClass(String assignmentName) throws SQLException {
+		int assignment = 0;
+		String queryStudent_ID = "SELECT assignments_id FROM assignments WHERE assigntments_name = ? ";
+
+		try (PreparedStatement stmt = db.prepareStatement(queryStudent_ID)) {
+			GradeManager.insertValues(stmt, assignmentName);
+
+			try (ResultSet rs = stmt.executeQuery()) {
+				if (rs.next()) {
+					assignment = rs.getInt("assignments_id"); // returns a 0 if the value doesn't exists
+				}
+			}
+		}
+
+		return assignment;
+	}
+
 	// Student Management
 	// add a student to the student table and enroll to a class
 	public void addStudent(String username, int student_id, String nameLast, String nameFirst) throws SQLException {
 		String student_name = nameFirst + " " + nameLast;
 
 		// have to check if the student ID already exists
-		String queryStudent_ID = "SELECT count(student_id) as sum FROM students WHERE student_id = ? ";
+		int student = studentIDCurrClass(username);
 
-		int student = 0;
-		try (PreparedStatement stmt = db.prepareStatement(queryStudent_ID)) {
-			GradeManager.insertValues(stmt, student_id);
-
-			try (ResultSet rs = stmt.executeQuery()) {
-				if (rs.next()) {
-					student = rs.getInt("sum");
-				}
-			}
-		}
-
+		// student doesn't exist, add the studnt in student table
 		if (student == 0) {
 			String queryAddStudent = "INSERT INTO students (student_id, student_username, student_name) "
 					+ "VALUES (?, ?, ?)";
 			insertQuery(queryAddStudent, student_id, username, student_name);
 
 		} else {
+			// student exists
 			// Now update the student name if doesn't match with database
 			String queryStudent_Name = "SELECT student_name FROM students WHERE student_id = ? ";
 
@@ -345,7 +373,7 @@ public class GradeManager {
 		String query = "SELECT s.student_id, s.student_username, s.student_name " + "FROM students as s "
 				+ "INNER JOIN enroll ON s.student_id = enroll.student_id WHERE (s.class_id = ?)";
 		if (match != "") {
-			query += "AND s.student_username LIKE '%?%'";
+			query += "AND (s.student_name LIKE '%?%' OR s.student_username LIKE '%?%')";
 		}
 
 		try (PreparedStatement stmt = db.prepareStatement(query)) {
@@ -359,24 +387,91 @@ public class GradeManager {
 				System.out.println("Students from the current class:\n");
 
 				while (rs.next()) {
-					System.out.println(rs.getInt("student_id") + "\t |" + rs.getString("student_username") + "\t |"
-							+ rs.getString("student_name"));
+					System.out.println(rs.getInt("student_id") + "\t |" + rs.getString("student_name") + "\t |"
+							+ rs.getString("student_username"));
 				}
 			}
 		}
 	}
 
 	// grade the given assignment for the passed in student
-	// TODO: get number of rows inserted as confirmation (we should do this for all inserts)
-	// TODO: I think this query will throw error if not found add in handle for assignment or student not found
-	// but if it doesn't, I'll add in separate queries to check that the assignment and student exist
+	// TODO: get number of rows inserted as confirmation (we should do this for all
+	// inserts) - done with an helping function
+	// TODO: I think this query will throw error if not found add in handle for
+	// assignment or student not found
+	// but if it doesn't, I'll add in separate queries to check that the assignment
+	// and student exist
 	public void grade(String assignName, String username, int grade) throws SQLException {
-		String query = "INSERT INTO grades (grades_score, assignments_id, student_id) values " +
-		"(?, SELECT a.assignments_id FROM assignments AS a INNER JOIN category AS c ON a.category_id = c.category_id " +
-		"WHERE c.class_id = ? AND a.assignments_name = ? GROUP BY c.category_id LIMIT 1, SELECT s.student_id FROM students AS s " +
-		"INNER JOIN enroll ON s.student_id = enroll.student_id WHERE s.class_id = ? AND s.student_username = ?)";
+
+		// check if student exits
+		int student = 0;
+		student = studentIDCurrClass(username);
+		if (student == 0) {
+			System.out.println("Error! The student doesn't exist!\n");
+			return;
+		}
+
+		// check if the assignment exits
+		int assignment_id = 0;
+		assignment_id = assignemntIDCurrClass(assignName);
+		if (assignment_id == 0) {
+			System.out.println("Error! The assignment doesn't exist!\n");
+			return;
+		}
+
+		// check if grade is greater than the point value allocated for the assignment
+		int assignment_value = 0;
+		String queryAssignPoint = "SELECT assignments_point_value FROM assignments WHERE assignments_id = ? ";
+
+		try (PreparedStatement stmt = db.prepareStatement(queryAssignPoint)) {
+			GradeManager.insertValues(stmt, assignment_id);
+
+			try (ResultSet rs = stmt.executeQuery()) {
+				if (rs.next()) {
+					assignment_value = rs.getInt("assignments_point_value"); // returns a 0 if the value doesn't exists
+				}
+			}
+		}
+
+		if (assignment_value > grade) {
+			// update/input but with a warning. Cases like extra credits
+			System.out.println(
+					"Warning! The highest point configured for this assignment is " + assignment_value + ".\n");
+		}
+
+		// then check if only update is needed
+		String queryGrade = "Select grades_score FROM grades WHERE student_id = ? AND assignments_id = ?";
+		try (PreparedStatement stmt = db.prepareStatement(queryGrade)) {
+			GradeManager.insertValues(stmt, student, assignment_id);
+
+			try (ResultSet rs = stmt.executeQuery()) {
+				if (rs.next()) { // row exists
+					String queryUpdateGrade = "UPDATE grades SET grades_score = ? WHERE student_id = ? AND assignments_id = ?";
+
+					try (PreparedStatement update = db.prepareStatement(queryUpdateGrade)) {
+						GradeManager.insertValues(update, grade, student, assignment_id);
+						update.executeUpdate();
+						System.out.println("Grade updated. To change the grade run the command with new grade again\n");
+						return;
+					}
+				}
+			}
+		}
+
+		//Now input the value
 		
-		insertQuery(query, grade, this.currActiveClass, assignName, this.currActiveClass, username);
+		String queryInputGrade = "INSERT INTO grade (grade_score, student_id, assignments_id) VALUES(?, ?, ?)";
+		insertQuery(queryInputGrade, grade, student, assignment_id);
+		System.out.println("Grade updated. To change the grade run the command with new grade again\n");
+		
+		// we do not need this query because student_id and assignment_id is retrieved
+		// and checked
+//		String query = "INSERT INTO grades (grades_score, assignments_id, student_id) values " +
+//		"(?, SELECT a.assignments_id FROM assignments AS a INNER JOIN category AS c ON a.category_id = c.category_id " +
+//		"WHERE c.class_id = ? AND a.assignments_name = ? GROUP BY c.category_id LIMIT 1, SELECT s.student_id FROM students AS s " +
+//		"INNER JOIN enroll ON s.student_id = enroll.student_id WHERE s.class_id = ? AND s.student_username = ?)";
+//		
+//		insertQuery(query, grade, this.currActiveClass, assignName, this.currActiveClass, username);
 	}
 
 	// show student's current grade
@@ -385,7 +480,8 @@ public class GradeManager {
 		// String query = "SELECT "
 	}
 
-	// show's entire classes gradebook, including student info and total grades in class
+	// show's entire classes gradebook, including student info and total grades in
+	// class
 	// TODO
 	public void gradebook() throws SQLException {
 		// String query = ""
