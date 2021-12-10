@@ -25,8 +25,8 @@ public class DBShell {
             "\tselect-class class-name [term] [section]\n" +
             "\tshow-class\n\n\n" +
             "The following commands can only be run if a class has been selected:\n" +
-            "\tshow-categories lists the categories with their weights\n" +
-            "\tadd-category adds a new category\n" +
+            "\tshow-categories lists the categories with their weights. Weights are shown as 0 to 100\n" +
+            "\tadd-category adds a new category with weight represented as a value between 0 and 100\n" +
             "\tshow-assignment lists the assignments with their point values, grouped by category\n" +
             "\tadd-assignment adds a new assignment\n" +
             "\tadd-student adds a student and enrolls them in the current class\n" +
@@ -71,7 +71,7 @@ public class DBShell {
 
         try {
             // set up GradeManager
-            con.setAutoCommit(false); // TODO: not sure if this should be done here or in gm
+            con.setAutoCommit(false);
             GradeManager mn = new GradeManager(con);
             
             // while loop to keep shell going unless user exits
@@ -85,9 +85,6 @@ public class DBShell {
                     cmdArgs = arr[1];
                 }
 
-                // TODO: in each case statement, call the GradeManager function
-                // TODO: not sure if we should do catches and rollback in here or in gm
-                // TODO: not sure if we need to do rollback on select queries or just insert ones
                 switch (cmd) {
                     case "new-class":
                         if (cmdArgs != "") {
@@ -121,9 +118,9 @@ public class DBShell {
 
                     case "list-classes":
                         if (cmdArgs == "") {
+                            valid = true;
                             try {
                                 mn.listClasses();
-                                valid = true;
                             } catch (SQLException e) {
                                 con.rollback();
                                 System.out.println(e.getMessage());
@@ -172,8 +169,8 @@ public class DBShell {
 
                     case "show-class":
                         if (cmdArgs == "") {
+                            valid = true;
                             try {
-                                valid = true;
                                 mn.showClass();
                             } catch (SQLException e) {
                                 con.rollback();
@@ -198,7 +195,7 @@ public class DBShell {
                         }
                         
                         if (!valid) {
-                            System.out.println("Invalid input. Expecting show-class");
+                            System.out.println("Invalid input. Expecting show-categories");
                         }
                         break;
 
@@ -206,20 +203,23 @@ public class DBShell {
                         if (cmdArgs != "") {
                             String opts[] = cmdArgs.split(" ", 2);
                             if (opts.length > 0 && opts.length <= 2) {
-                                valid = true;
                                 String name = opts[0];
                                 int weight = Integer.parseInt(opts[1]);
-                                try {
-                                    mn.addCategory(name, weight);
-                                } catch (SQLException e) {
-                                    con.rollback();
-                                    System.out.println(e.getMessage());
+                                if (weight >= 0 && weight <= 100) {
+                                    valid = true;
+                                    try {
+                                        mn.addCategory(name, weight);
+                                    } catch (SQLException e) {
+                                        con.rollback();
+                                        System.out.println(e.getMessage());
+                                    }
                                 }
+                                
                             }
                         }
 
                         if (!valid) {
-                            System.out.println("Invalid input. Expecting add-category name weight");
+                            System.out.println("Invalid input. Expecting add-category name weight\nWhere weight is from 0 to 100");
                         }
                         break;
                         
@@ -239,12 +239,13 @@ public class DBShell {
                         break;
                     case "add-assignment":
                         if (cmdArgs != "") {
-                            String opts[] = cmdArgs.split(" ", 4);
-                            if (opts.length == 4) {
+                            String opts[] = cmdArgs.split(" ", 3);
+                            int points = -1;
+                            points = Integer.parseInt(opts[2].substring(opts[2].lastIndexOf(" ") + 1));
+                            String description = opts[2].substring(0, opts[2].lastIndexOf(" "));
+                            if (opts.length == 3 && points != -1) {
                                 String name = opts[0];
                                 String category = opts[1];
-                                String description = opts[2];
-                                int points = Integer.parseInt(opts[3]);
                                 valid = true;
                                 try {
                                     mn.addNewAssignment(name, category, description, points);
@@ -371,6 +372,9 @@ public class DBShell {
 
                     case "q":
                         System.out.println("Quitting Grade Manager");
+                        try { // nested trys aren't ideal but need to catch SQL exception for rollback attempt
+                            con.rollback();
+                        } catch (SQLException err) {} // do nothing if con doesn't need to be rolled back
                         input.close();
                         System.exit(0);
                     case "h":
