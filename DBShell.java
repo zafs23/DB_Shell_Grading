@@ -54,6 +54,7 @@ public class DBShell {
         Scanner input = new Scanner(System.in);
         Connection con = null;
 
+        // set up connection
         try {
             con = JDBCConnect.establishConnection();
         } catch (ClassNotFoundException e) {
@@ -85,6 +86,7 @@ public class DBShell {
                     cmdArgs = arr[1];
                 }
 
+                // switch case to handle all input
                 switch (cmd) {
                     case "new-class":
                         if (cmdArgs != "") {

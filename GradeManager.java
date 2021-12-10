@@ -585,7 +585,7 @@ public class GradeManager {
 				ResultSetMetaData rsmd = rs.getMetaData();
 				GradeManager.displayColumnHeaders(rsmd);
 				while (rs.next()) {
-					System.out.println(rs.getString("category_name") + "\t | \t" + rs.getInt("category_grade"));
+					System.out.println(rs.getString("category_name") + "\t | \t" + rs.getFloat("category_grade"));
 				}
 			}
 		}
@@ -594,24 +594,23 @@ public class GradeManager {
 		try (PreparedStatement stmt = db.prepareStatement(getTotalGrade)){
 			GradeManager.insertValues(stmt, student, this.currActiveClass);
 			try (ResultSet rs = stmt.executeQuery()) {
-				System.out.println("Total grade: " + rs.getInt("total_grade"));
+				System.out.println("Total grade: " + rs.getFloat("total_grade"));
 			}
 		}
 	}
 
 	// show's entire classes gradebook, including student info and total grades in class
-	// TODO: this is just showing students who have grades in the class but should be all students
 	public void gradebook() throws SQLException {
-		String query = "SELECT x.student_name, SUM(CAST((CAST(x.category_weight AS float) / 100.0) * x.category_grade AS float)) AS total_grade " +
+		String query = "SELECT x.student_id, x.student_username, x.student_name, SUM(x.points_earned) AS points_earned, SUM(x.total_points) AS total_points, SUM(CAST((CAST(x.category_weight AS float) / 100.0) * x.category_grade AS float)) AS total_grade " +
 		"FROM " +
-			"(SELECT s.student_name, c.category_name, c.category_weight, (CAST(SUM(g.grades_score) AS float) / CAST(SUM(a.assignments_point_value) AS float)) * 100.0 AS category_grade FROM grades AS g " +
+			"(SELECT s.student_id, s.student_username, s.student_name, c.category_name, c.category_weight, SUM(g.grades_score) AS points_earned, SUM(a.assignments_point_value) AS total_points, (CAST(SUM(g.grades_score) AS float) / CAST(SUM(a.assignments_point_value) AS float)) * 100.0 AS category_grade FROM grades AS g " +
 			"JOIN assignments AS a ON g.assignments_id = a.assignments_id " +
 			"JOIN category as c ON a.category_id = c.category_id " +
 			"JOIN students AS s ON g.student_id = s.student_id " +
 			"WHERE c.class_id = ? " +
-			"GROUP BY c.category_name, s.student_name " +
+			"GROUP BY c.category_name, s.student_id, s.student_username, s.student_name " +
 			"ORDER BY c.category_name) x " +
-		"GROUP BY x.student_name "; 
+		"GROUP BY x.student_id, x.student_username, x.student_name "; 
 
 		try (PreparedStatement stmt = db.prepareStatement(query)) {
 			GradeManager.insertValues(stmt, this.currActiveClass);
@@ -620,7 +619,8 @@ public class GradeManager {
 				ResultSetMetaData rsmd = rs.getMetaData();
 				GradeManager.displayColumnHeaders(rsmd);
 				while (rs.next()) {
-					System.out.println(rs.getString("student_name") + "\t | \t" + rs.getInt("total_grade"));
+					System.out.println(rs.getInt("student_id") + "\t|\t" + rs.getString("student_username") + "\t|\t" + rs.getString("student_name") + "\t|\t" + rs.getInt("points_earned") + 
+						"\t|\t" + rs.getInt("total_points") + "\t|\t" + rs.getFloat("total_grade"));
 				}
 			}
 		}
