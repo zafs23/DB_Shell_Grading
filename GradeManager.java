@@ -332,13 +332,14 @@ public class GradeManager {
 		return student;
 	}
 
-	// check if assignment exits
+	// check if assignment exists for selected class
 	private int assignemntIDCurrClass(String assignmentName) throws SQLException {
 		int assignment = 0;
-		String queryStudent_ID = "SELECT assignments_id FROM assignments WHERE assignments_name = ? ";
+		String queryStudent_ID = "SELECT assignments_id FROM assignments JOIN category ON assignments.category_id = category.category_id " + 
+			"WHERE assignments_name = ? AND category.class_id = ? ";
 
 		try (PreparedStatement stmt = db.prepareStatement(queryStudent_ID)) {
-			GradeManager.insertValues(stmt, assignmentName);
+			GradeManager.insertValues(stmt, assignmentName, this.currActiveClass);
 
 			try (ResultSet rs = stmt.executeQuery()) {
 				this.db.commit();
@@ -364,7 +365,6 @@ public class GradeManager {
 			String queryAddStudent = "INSERT INTO students (student_id, student_username, student_name) "
 					+ "VALUES (?, ?, ?)";
 			insertQuery(queryAddStudent, student_id, username, student_name);
-
 		} else {
 			// student exists
 			// Now update the student name if doesn't match with database
@@ -424,7 +424,7 @@ public class GradeManager {
 			// enroll the student
 			String queryEnrollStudent = "INSERT INTO enroll (student_id, class_id)  VALUES (?, ?)";
 			insertQuery(queryEnrollStudent, student_id, this.currActiveClass);
-
+			System.out.println(username + " was added to class");
 		} else {
 			System.out.println("Error! Student doesn't exist. \n");
 			return;
@@ -437,7 +437,7 @@ public class GradeManager {
 				+ "INNER JOIN enroll ON s.student_id = enroll.student_id WHERE enroll.class_id = ?";
 		if (match != "") {
 			// prepare statement has issues with % so have to do concat like below
-			query += " AND s.student_name LIKE CONCAT( '%',?,'%') OR s.student_username LIKE CONCAT( '%',?,'%')";
+			query += " AND (s.student_name LIKE CONCAT( '%',?,'%') OR s.student_username LIKE CONCAT( '%',?,'%')) ";
 		}
 
 		try (PreparedStatement stmt = db.prepareStatement(query)) {
@@ -461,12 +461,6 @@ public class GradeManager {
 	}
 
 	// grade the given assignment for the passed in student
-	// TODO: get number of rows inserted as confirmation (we should do this for all
-	// inserts) - done with an helping function
-	// TODO: I think this query will throw error if not found add in handle for
-	// assignment or student not found
-	// but if it doesn't, I'll add in separate queries to check that the assignment
-	// and student exist
 	public void grade(String assignName, String username, int grade) throws SQLException {
 
 		// check if student exits
@@ -571,7 +565,7 @@ public class GradeManager {
 				ResultSetMetaData rsmd = rs.getMetaData();
 				GradeManager.displayColumnHeaders(rsmd);
 				while (rs.next()) {
-					System.out.println(rs.getString("category_name") + "\t | \t " + rs.getString("assignments_name") + "\t | \t" + rs.getInt("grade"));
+					System.out.println(rs.getString("category_name") + "\t | \t " + rs.getString("assignments_name") + "\t | \t" + rs.getInt("grade") + "\n");
 				}
 			}
 		}
@@ -585,7 +579,7 @@ public class GradeManager {
 				ResultSetMetaData rsmd = rs.getMetaData();
 				GradeManager.displayColumnHeaders(rsmd);
 				while (rs.next()) {
-					System.out.println(rs.getString("category_name") + "\t | \t" + rs.getFloat("category_grade"));
+					System.out.println(rs.getString("category_name") + "\t | \t" + rs.getFloat("category_grade") + "\n");
 				}
 			}
 		}
@@ -594,7 +588,9 @@ public class GradeManager {
 		try (PreparedStatement stmt = db.prepareStatement(getTotalGrade)){
 			GradeManager.insertValues(stmt, student, this.currActiveClass);
 			try (ResultSet rs = stmt.executeQuery()) {
-				System.out.println("Total grade: " + rs.getFloat("total_grade"));
+				if (rs.next()){
+					System.out.println("Total grade: " + rs.getFloat("total_grade") + "\n");
+				}
 			}
 		}
 	}
@@ -620,7 +616,7 @@ public class GradeManager {
 				GradeManager.displayColumnHeaders(rsmd);
 				while (rs.next()) {
 					System.out.println(rs.getInt("student_id") + "\t|\t" + rs.getString("student_username") + "\t|\t" + rs.getString("student_name") + "\t|\t" + rs.getInt("points_earned") + 
-						"\t|\t" + rs.getInt("total_points") + "\t|\t" + rs.getFloat("total_grade"));
+						"\t|\t" + rs.getInt("total_points") + "\t|\t" + rs.getFloat("total_grade") +"\n");
 				}
 			}
 		}
